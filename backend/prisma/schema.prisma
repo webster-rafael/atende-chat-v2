@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  role      UserRole @default(AGENT)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  conversations Conversation[]
+  messages      Message[]
+  queues        QueueUser[]
+
+  @@map("users")
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String   @unique
+  email       String?
+  avatar      String?
+  isBlocked   Boolean  @default(false)
+  tags        String[]
+  notes       String?
+  lastSeenAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  conversations Conversation[]
+
+  @@map("contacts")
+}
+
+model Queue {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String   @default("#3B82F6")
+  isActive    Boolean  @default(true)
+  priority    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  conversations Conversation[]
+  users         QueueUser[]
+
+  @@map("queues")
+}
+
+model QueueUser {
+  id      String @id @default(cuid())
+  userId  String
+  queueId String
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  queue Queue @relation(fields: [queueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, queueId])
+  @@map("queue_users")
+}
+
+model Conversation {
+  id            String            @id @default(cuid())
+  contactId     String
+  userId        String?
+  queueId       String?
+  status        ConversationStatus @default(WAITING)
+  priority      Priority          @default(MEDIUM)
+  subject       String?
+  lastMessageAt DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  // Relacionamentos
+  contact  Contact   @relation(fields: [contactId], references: [id])
+  user     User?     @relation(fields: [userId], references: [id])
+  queue    Queue?    @relation(fields: [queueId], references: [id])
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String
+  userId         String?
+  content        String
+  messageType    MessageType @default(TEXT)
+  direction      Direction
+  whatsappId     String?     @unique
+  status         MessageStatus @default(PENDING)
+  mediaUrl       String?
+  mediaType      String?
+  isRead         Boolean     @default(false)
+  readAt         DateTime?
+  deliveredAt    DateTime?
+  sentAt         DateTime?
+  createdAt      DateTime    @default(now())
+
+  // Relacionamentos
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@map("messages")
+}
+
+model WhatsAppConnection {
+  id              String   @id @default(cuid())
+  name            String
+  phoneNumberId   String   @unique
+  accessToken     String
+  webhookUrl      String?
+  verifyToken     String
+  isActive        Boolean  @default(true)
+  lastSyncAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("whatsapp_connections")
+}
+
+enum UserRole {
+  ADMIN
+  SUPERVISOR
+  AGENT
+}
+
+enum ConversationStatus {
+  WAITING
+  ATTENDING
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  DOCUMENT
+  AUDIO
+  VIDEO
+  LOCATION
+  CONTACT
+}
+
+enum Direction {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}

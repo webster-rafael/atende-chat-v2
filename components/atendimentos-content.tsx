@@ -1,556 +1,590 @@
 "use client"
 
-import { useState } from "react"
-import { Search, Filter, Phone, User, Paperclip, Mic, Send, MoreVertical, MessageSquare, Clock } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  MessageCircle,
+  Clock,
+  UserIcon,
+  Send,
+  Phone,
+  Mail,
+  Search,
+  Filter,
+  CheckCircle2,
+  UserCheck,
+  MessageSquare,
+} from "lucide-react"
+import { api } from "@/lib/api"
+import { websocket } from "@/lib/websocket"
+import { useToast } from "@/hooks/use-toast"
 
-interface Conversation {
+interface Contact {
   id: string
-  contact: {
-    name: string
-    phone: string
-    avatar?: string
-  }
-  lastMessage: string
-  timestamp: string
-  status: "online" | "offline" | "away"
-  queue: string
-  agent: string
-  unreadCount: number
-  priority: "high" | "medium" | "low"
+  name: string
+  phone: string
+  email?: string
+  avatar?: string
+  isBlocked: boolean
+  lastSeenAt?: string
 }
 
 interface Message {
   id: string
   content: string
-  timestamp: string
-  sender: "customer" | "agent"
-  type: "text" | "image" | "file"
-  status: "sent" | "delivered" | "read"
+  messageType: string
+  direction: "INBOUND" | "OUTBOUND"
+  status: string
+  isRead: boolean
+  createdAt: string
+  user?: any
 }
 
-const conversations: Conversation[] = [
-  {
-    id: "1",
-    contact: {
-      name: "João Silva",
-      phone: "5567994634486",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage: "Preciso de ajuda com meu pedido",
-    timestamp: "13:41",
-    status: "online",
-    queue: "SUPORTE",
-    agent: "ADMIN",
-    unreadCount: 2,
-    priority: "high",
-  },
-  {
-    id: "2",
-    contact: {
-      name: "Maria Santos",
-      phone: "5567913517720",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage: "Obrigada pelo atendimento!",
-    timestamp: "11:28",
-    status: "offline",
-    queue: "VENDAS",
-    agent: "WEBSTER",
-    unreadCount: 0,
-    priority: "medium",
-  },
-  {
-    id: "3",
-    contact: {
-      name: "Carlos Oliveira",
-      phone: "5567998765432",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage: "Quando será entregue?",
-    timestamp: "10:59",
-    status: "away",
-    queue: "LOGISTICA",
-    agent: "ADMIN",
-    unreadCount: 1,
-    priority: "medium",
-  },
-]
+interface Conversation {
+  id: string
+  status: "WAITING" | "ATTENDING" | "RESOLVED" | "CLOSED"
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"
+  lastMessageAt: string
+  contact: Contact
+  user?: any
+  messages: Message[]
+  _count: {
+    messages: number
+  }
+}
 
-const waitingConversations: Conversation[] = [
-  {
-    id: "w1",
-    contact: {
-      name: "Ana Costa",
-      phone: "5567998123456",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage: "Entendo que você está falando sobre sair com alguém especial, mas essa informação não está relaci...",
-    timestamp: "14:11",
-    status: "away",
-    queue: "SEM FILA",
-    agent: "WEBSTER",
-    unreadCount: 0,
-    priority: "medium",
-  },
-  {
-    id: "w2",
-    contact: {
-      name: "Pedro Silva",
-      phone: "5567929445756",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage: "Boa tarde! Posso ajudar com alguma informação específica? Qual é o seu nome?",
-    timestamp: "14:11",
-    status: "offline",
-    queue: "VENDAS",
-    agent: "WEBSTER",
-    unreadCount: 1,
-    priority: "high",
-  },
-  {
-    id: "w3",
-    contact: {
-      name: "Lucia Santos",
-      phone: "5567930313571",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage: "Por favor, me informe seu nome para que possamos continuar a conversa",
-    timestamp: "14:11",
-    status: "online",
-    queue: "SUPORTE",
-    agent: "WEBSTER",
-    unreadCount: 0,
-    priority: "medium",
-  },
-  {
-    id: "w4",
-    contact: {
-      name: "Roberto Lima",
-      phone: "5567940123456",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage:
-      "Parece que não consegui entender sua solicitação. Por favor, poderia esclarecer ou reformular a perg...",
-    timestamp: "14:11",
-    status: "away",
-    queue: "LOGISTICA",
-    agent: "WEBSTER",
-    unreadCount: 2,
-    priority: "low",
-  },
-  {
-    id: "w5",
-    contact: {
-      name: "Fernanda Oliveira",
-      phone: "5567967790175",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage: "Minha zona é fazendo o que trabalho no mesmo lugar q vc",
-    timestamp: "14:11",
-    status: "online",
-    queue: "VENDAS",
-    agent: "WEBSTER",
-    unreadCount: 0,
-    priority: "medium",
-  },
-  {
-    id: "w6",
-    contact: {
-      name: "Marcos Pereira",
-      phone: "5512036318460509037",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage: "Mouse Bluetooth Attack Shark X6 PAW3395 por R$130,00 🖱️ Com cupom ALTLIVE18 + 493 moedas...",
-    timestamp: "13:42",
-    status: "offline",
-    queue: "VENDAS",
-    agent: "WEBSTER",
-    unreadCount: 1,
-    priority: "high",
-  },
-  {
-    id: "w7",
-    contact: {
-      name: "Leo",
-      phone: "5567999888777",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage: "❤️",
-    timestamp: "13:07",
-    status: "away",
-    queue: "SEM FILA",
-    agent: "WEBSTER",
-    unreadCount: 0,
-    priority: "low",
-  },
-]
+const statusColors = {
+  WAITING: "bg-yellow-500",
+  ATTENDING: "bg-blue-500",
+  RESOLVED: "bg-green-500",
+  CLOSED: "bg-gray-500",
+}
 
-const messages: Message[] = [
-  {
-    id: "1",
-    content: "Olá! Como posso ajudá-lo hoje?",
-    timestamp: "14:10",
-    sender: "agent",
-    type: "text",
-    status: "read",
-  },
-  {
-    id: "2",
-    content: "Preciso de informações sobre meu pedido #12345",
-    timestamp: "14:11",
-    sender: "customer",
-    type: "text",
-    status: "read",
-  },
-  {
-    id: "3",
-    content: "Claro! Vou verificar o status do seu pedido. Um momento, por favor.",
-    timestamp: "14:12",
-    sender: "agent",
-    type: "text",
-    status: "read",
-  },
-  {
-    id: "4",
-    content:
-      "Seu pedido foi enviado hoje e deve chegar em 2-3 dias úteis. Aqui está o código de rastreamento: BR123456789",
-    timestamp: "14:15",
-    sender: "agent",
-    type: "text",
-    status: "delivered",
-  },
-]
+const priorityColors = {
+  LOW: "bg-gray-500",
+  MEDIUM: "bg-blue-500",
+  HIGH: "bg-orange-500",
+  URGENT: "bg-red-500",
+}
 
 export function AtendimentosContent() {
-  const [selectedConversation, setSelectedConversation] = useState<string>("1")
-  const [messageInput, setMessageInput] = useState("")
-  const [activeTab, setActiveTab] = useState("abertas")
-  const [activeSubTab, setActiveSubTab] = useState("atendendo")
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [newMessage, setNewMessage] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [filter, setFilter] = useState("all")
+  const [search, setSearch] = useState("")
+  const [stats, setStats] = useState({
+    waiting: 0,
+    attending: 0,
+    resolved: 0,
+    total: 0,
+  })
+  const [currentUser] = useState({ id: "user-1", name: "Agente Atual" }) // Mock user
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { toast } = useToast()
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "online":
-        return "bg-green-500"
-      case "offline":
-        return "bg-gray-400"
-      case "away":
-        return "bg-yellow-500"
-      default:
-        return "bg-gray-400"
+  useEffect(() => {
+    loadConversations()
+    loadStats()
+
+    // Connect to WebSocket
+    websocket.connect()
+
+    // Listen for new messages
+    websocket.on("new_message", (data: any) => {
+      if (selectedConversation && data.message.conversationId === selectedConversation.id) {
+        setMessages((prev) => [...prev, data.message])
+        scrollToBottom()
+      }
+      // Update conversation list
+      loadConversations()
+    })
+
+    websocket.on("conversation_updated", (data: any) => {
+      setConversations((prev) => prev.map((conv) => (conv.id === data.conversation.id ? data.conversation : conv)))
+    })
+
+    return () => {
+      websocket.disconnect()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedConversation) {
+      loadMessages(selectedConversation.id)
+      websocket.joinConversation(selectedConversation.id)
+
+      // Mark messages as read
+      api.markMessagesAsRead(selectedConversation.id, currentUser.id)
+    }
+  }, [selectedConversation])
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
+
+  const loadConversations = async () => {
+    try {
+      const params: any = {}
+      if (filter !== "all") params.status = filter.toUpperCase()
+
+      const response = await api.getConversations(params)
+      setConversations(response.conversations)
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar conversas",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "border-l-red-500"
-      case "medium":
-        return "border-l-yellow-500"
-      case "low":
-        return "border-l-green-500"
-      default:
-        return "border-l-gray-300"
+  const loadMessages = async (conversationId: string) => {
+    try {
+      const response = await api.getMessages(conversationId)
+      setMessages(response.messages)
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar mensagens",
+        variant: "destructive",
+      })
     }
   }
 
-  const getQueueColor = (queue: string) => {
-    switch (queue) {
-      case "SUPORTE":
-        return "bg-blue-100 text-blue-800"
-      case "VENDAS":
-        return "bg-green-100 text-green-800"
-      case "LOGISTICA":
-        return "bg-purple-100 text-purple-800"
-      default:
-        return "bg-gray-100 text-gray-800"
+  const loadStats = async () => {
+    try {
+      const response = await api.getConversations({ page: 1, limit: 1 })
+      // This is a simplified stats loading - in real app you'd have a dedicated endpoint
+      const waiting = await api.getConversations({ status: "WAITING", page: 1, limit: 1 })
+      const attending = await api.getConversations({ status: "ATTENDING", page: 1, limit: 1 })
+      const resolved = await api.getConversations({ status: "RESOLVED", page: 1, limit: 1 })
+
+      setStats({
+        waiting: waiting.pagination?.total || 0,
+        attending: attending.pagination?.total || 0,
+        resolved: resolved.pagination?.total || 0,
+        total: response.pagination?.total || 0,
+      })
+    } catch (error) {
+      console.error("Error loading stats:", error)
     }
   }
 
-  const getCurrentConversations = () => {
-    if (activeTab !== "abertas") return []
-    return activeSubTab === "atendendo" ? conversations : waitingConversations
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation || sending) return
+
+    setSending(true)
+    try {
+      const response = await api.sendMessage({
+        conversationId: selectedConversation.id,
+        content: newMessage,
+        userId: currentUser.id,
+      })
+
+      setMessages((prev) => [...prev, response.message])
+      setNewMessage("")
+      scrollToBottom()
+
+      toast({
+        title: "Sucesso",
+        description: "Mensagem enviada com sucesso",
+      })
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao enviar mensagem",
+        variant: "destructive",
+      })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const assignConversation = async (conversationId: string) => {
+    try {
+      await api.assignConversation(conversationId, currentUser.id)
+      loadConversations()
+
+      toast({
+        title: "Sucesso",
+        description: "Conversa atribuída com sucesso",
+      })
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao atribuir conversa",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const updateConversationStatus = async (conversationId: string, status: string) => {
+    try {
+      await api.updateConversationStatus(conversationId, status)
+      loadConversations()
+
+      toast({
+        title: "Sucesso",
+        description: "Status da conversa atualizado",
+      })
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar status",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  const filteredConversations = conversations.filter((conv) => {
+    const matchesSearch =
+      conv.contact.name.toLowerCase().includes(search.toLowerCase()) || conv.contact.phone.includes(search)
+    const matchesFilter = filter === "all" || conv.status.toLowerCase() === filter
+    return matchesSearch && matchesFilter
+  })
+
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("pt-BR")
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00183E] mx-auto mb-4"></div>
+          <p>Carregando atendimentos...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex h-full">
-      {/* Conversations List */}
-      <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-semibold text-gray-900">Atendimentos</h1>
-            <Button variant="outline" size="sm">
-              <Filter className="w-4 h-4 mr-2" />
-              Filtros
-            </Button>
-          </div>
+    <div className="space-y-6">
+      {/* Header com estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Clock className="h-4 w-4 text-yellow-500" />
+              <div>
+                <p className="text-sm font-medium">Aguardando</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.waiting}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input placeholder="Buscar conversas..." className="pl-10" />
-          </div>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <UserCheck className="h-4 w-4 text-blue-500" />
+              <div>
+                <p className="text-sm font-medium">Em Atendimento</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.attending}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="abertas" className="text-xs">
-                ABERTAS
-                <Badge variant="secondary" className="ml-2 bg-[#00183E] text-white">
-                  {conversations.length}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="resolvidas" className="text-xs">
-                RESOLVIDAS
-              </TabsTrigger>
-              <TabsTrigger value="busca" className="text-xs">
-                BUSCA
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <div>
+                <p className="text-sm font-medium">Resolvidos</p>
+                <p className="text-2xl font-bold text-green-600">{stats.resolved}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Queue Filter */}
-        <div className="p-4 border-b border-gray-200">
-          <Select defaultValue="todas">
-            <SelectTrigger>
-              <SelectValue placeholder="Todas as filas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas">Todas as filas</SelectItem>
-              <SelectItem value="suporte">Suporte</SelectItem>
-              <SelectItem value="vendas">Vendas</SelectItem>
-              <SelectItem value="logistica">Logística</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <MessageSquare className="h-4 w-4 text-gray-500" />
+              <div>
+                <p className="text-sm font-medium">Total</p>
+                <p className="text-2xl font-bold text-gray-600">{stats.total}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Sub-tabs */}
-        <div className="flex border-b border-gray-200">
-          <button
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeSubTab === "atendendo"
-                ? "text-[#00183E] border-b-2 border-[#00183E] bg-blue-50"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveSubTab("atendendo")}
-          >
-            ATENDENDO
-            <Badge variant="secondary" className="ml-2 bg-[#00183E] text-white text-xs">
-              {conversations.length}
-            </Badge>
-          </button>
-          <button
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeSubTab === "aguardando"
-                ? "text-[#00183E] border-b-2 border-[#00183E] bg-blue-50"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveSubTab("aguardando")}
-          >
-            AGUARDANDO
-            <Badge variant="secondary" className="ml-2 bg-red-500 text-white text-xs">
-              {waitingConversations.length}
-            </Badge>
-          </button>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
+        {/* Lista de Conversas */}
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Conversas</CardTitle>
+              <Button variant="outline" size="sm">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </div>
 
-        {/* Conversations */}
-        <ScrollArea className="flex-1">
-          <div className="p-2">
-            {getCurrentConversations().map((conversation) => (
-              <Card
-                key={conversation.id}
-                className={`mb-2 cursor-pointer transition-all hover:shadow-md border-l-4 ${getPriorityColor(conversation.priority)} ${
-                  selectedConversation === conversation.id ? "ring-2 ring-[#00183E] ring-opacity-50" : ""
-                } ${activeSubTab === "aguardando" ? "bg-yellow-50" : ""}`}
-                onClick={() => setSelectedConversation(conversation.id)}
-              >
-                <CardContent className="p-3">
-                  <div className="flex items-start space-x-3">
-                    <div className="relative">
-                      <Avatar className="w-12 h-12">
+            {/* Busca */}
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar conversas..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+
+            {/* Filtros */}
+            <Tabs value={filter} onValueChange={setFilter} className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="all" className="text-xs">
+                  Todas
+                </TabsTrigger>
+                <TabsTrigger value="waiting" className="text-xs">
+                  Aguardando
+                </TabsTrigger>
+                <TabsTrigger value="attending" className="text-xs">
+                  Atendendo
+                </TabsTrigger>
+                <TabsTrigger value="resolved" className="text-xs">
+                  Resolvidas
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </CardHeader>
+
+          <CardContent className="p-0">
+            <ScrollArea className="h-[calc(100vh-500px)]">
+              <div className="space-y-1 p-4">
+                {filteredConversations.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${
+                      selectedConversation?.id === conversation.id ? "bg-blue-50 border-l-4 border-blue-500" : ""
+                    }`}
+                    onClick={() => setSelectedConversation(conversation)}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <Avatar className="h-10 w-10">
                         <AvatarImage src={conversation.contact.avatar || "/placeholder.svg"} />
-                        <AvatarFallback className="bg-[#00183E] text-white">
-                          {conversation.contact.name.charAt(0)}
-                        </AvatarFallback>
+                        <AvatarFallback>{conversation.contact.name.charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
-                      <div
-                        className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${getStatusColor(conversation.status)}`}
-                      />
-                      {activeSubTab === "aguardando" && (
-                        <div className="absolute -top-1 -left-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                          <Clock className="w-2 h-2 text-white" />
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium truncate">{conversation.contact.name}</p>
+                          <div className="flex items-center space-x-1">
+                            <Badge className={`${statusColors[conversation.status]} text-white text-xs`}>
+                              {conversation.status}
+                            </Badge>
+                            <Badge className={`${priorityColors[conversation.priority]} text-white text-xs`}>
+                              {conversation.priority}
+                            </Badge>
+                          </div>
                         </div>
-                      )}
-                    </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-medium text-gray-900 truncate">{conversation.contact.name}</h3>
-                        <div className="flex items-center space-x-1">
-                          <span className="text-xs text-gray-500">{conversation.timestamp}</span>
-                          {activeSubTab === "aguardando" && (
-                            <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                          )}
-                        </div>
-                      </div>
+                        <p className="text-xs text-gray-500 truncate">{conversation.contact.phone}</p>
 
-                      <p className="text-sm text-gray-600 truncate mb-2">{conversation.lastMessage}</p>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="secondary" className={`text-xs ${getQueueColor(conversation.queue)}`}>
-                            {conversation.queue}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {conversation.agent}
-                          </Badge>
-                          {activeSubTab === "aguardando" && (
-                            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
-                              AGUARDANDO
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-gray-400">{formatTime(conversation.lastMessageAt)}</p>
+                          {conversation._count.messages > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {conversation._count.messages}
                             </Badge>
                           )}
                         </div>
 
-                        {conversation.unreadCount > 0 && (
-                          <Badge className="bg-red-500 text-white text-xs">{conversation.unreadCount}</Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </ScrollArea>
-      </div>
-
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-gray-50">
-        {selectedConversation ? (
-          <>
-            {/* Chat Header */}
-            <div className="bg-white border-b border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src="/placeholder.svg?height=40&width=40" />
-                      <AvatarFallback className="bg-[#00183E] text-white">JS</AvatarFallback>
-                    </Avatar>
-                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
-                  </div>
-
-                  <div>
-                    <h2 className="font-semibold text-gray-900">João Silva</h2>
-                    <p className="text-sm text-gray-500">+55 67 99463-4486 • Online</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm">
-                    <Phone className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <User className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Messages */}
-            <ScrollArea className="flex-1 p-4">
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.sender === "agent" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        message.sender === "agent"
-                          ? "bg-[#00183E] text-white"
-                          : "bg-white text-gray-900 border border-gray-200"
-                      }`}
-                    >
-                      <p className="text-sm">{message.content}</p>
-                      <div className="flex items-center justify-end mt-1 space-x-1">
-                        <span className={`text-xs ${message.sender === "agent" ? "text-blue-200" : "text-gray-500"}`}>
-                          {message.timestamp}
-                        </span>
-                        {message.sender === "agent" && (
-                          <div className="flex space-x-1">
-                            <div
-                              className={`w-2 h-2 rounded-full ${
-                                message.status === "read"
-                                  ? "bg-blue-300"
-                                  : message.status === "delivered"
-                                    ? "bg-gray-300"
-                                    : "bg-gray-400"
-                              }`}
-                            />
-                            {message.status === "read" && <div className="w-2 h-2 rounded-full bg-blue-300" />}
+                        {conversation.user && (
+                          <div className="flex items-center mt-1">
+                            <UserIcon className="h-3 w-3 text-gray-400 mr-1" />
+                            <p className="text-xs text-gray-500">{conversation.user.name}</p>
                           </div>
                         )}
                       </div>
                     </div>
+
+                    {conversation.status === "WAITING" && (
+                      <div className="mt-2 flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs bg-transparent"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            assignConversation(conversation.id)
+                          }}
+                        >
+                          Atender
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
+
+                {filteredConversations.length === 0 && (
+                  <div className="text-center py-8">
+                    <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">Nenhuma conversa encontrada</p>
+                  </div>
+                )}
               </div>
             </ScrollArea>
+          </CardContent>
+        </Card>
 
-            {/* Message Input */}
-            <div className="bg-white border-t border-gray-200 p-4">
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm">
-                  <Paperclip className="w-4 h-4" />
-                </Button>
+        {/* Chat */}
+        <Card className="lg:col-span-2">
+          {selectedConversation ? (
+            <>
+              {/* Header do Chat */}
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Avatar>
+                      <AvatarImage src={selectedConversation.contact.avatar || "/placeholder.svg"} />
+                      <AvatarFallback>{selectedConversation.contact.name.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="font-semibold">{selectedConversation.contact.name}</h3>
+                      <div className="flex items-center space-x-2 text-sm text-gray-500">
+                        <Phone className="h-3 w-3" />
+                        <span>{selectedConversation.contact.phone}</span>
+                        {selectedConversation.contact.email && (
+                          <>
+                            <Mail className="h-3 w-3 ml-2" />
+                            <span>{selectedConversation.contact.email}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-                <div className="flex-1 relative">
-                  <Input
-                    placeholder="Digite uma mensagem..."
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    className="pr-12"
-                  />
-                  <Button
-                    size="sm"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 bg-[#00183E] hover:bg-[#00183E]/90"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center space-x-2">
+                    <Badge className={`${statusColors[selectedConversation.status]} text-white`}>
+                      {selectedConversation.status}
+                    </Badge>
+
+                    {selectedConversation.status === "ATTENDING" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => updateConversationStatus(selectedConversation.id, "RESOLVED")}
+                      >
+                        Resolver
+                      </Button>
+                    )}
+                  </div>
                 </div>
+              </CardHeader>
 
-                <Button variant="outline" size="sm">
-                  <Mic className="w-4 h-4" />
-                </Button>
+              <Separator />
+
+              {/* Mensagens */}
+              <CardContent className="p-0">
+                <ScrollArea className="h-[calc(100vh-600px)] p-4">
+                  <div className="space-y-4">
+                    {messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex ${message.direction === "OUTBOUND" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[70%] rounded-lg p-3 ${
+                            message.direction === "OUTBOUND" ? "bg-[#00183E] text-white" : "bg-gray-100 text-gray-900"
+                          }`}
+                        >
+                          <p className="text-sm">{message.content}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-xs opacity-70">{formatTime(message.createdAt)}</p>
+                            {message.direction === "OUTBOUND" && (
+                              <div className="flex items-center space-x-1">
+                                {message.status === "SENT" && <CheckCircle2 className="h-3 w-3" />}
+                                {message.status === "DELIVERED" && (
+                                  <div className="flex">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    <CheckCircle2 className="h-3 w-3 -ml-1" />
+                                  </div>
+                                )}
+                                {message.status === "READ" && (
+                                  <div className="flex text-blue-400">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    <CheckCircle2 className="h-3 w-3 -ml-1" />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {message.user && message.direction === "OUTBOUND" && (
+                            <p className="text-xs opacity-70 mt-1">{message.user.name}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </ScrollArea>
+
+                {/* Input de mensagem */}
+                <div className="p-4 border-t">
+                  <div className="flex space-x-2">
+                    <Input
+                      placeholder="Digite sua mensagem..."
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault()
+                          sendMessage()
+                        }
+                      }}
+                      disabled={sending || selectedConversation.status === "CLOSED"}
+                    />
+                    <Button
+                      onClick={sendMessage}
+                      disabled={sending || !newMessage.trim() || selectedConversation.status === "CLOSED"}
+                    >
+                      {sending ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </>
+          ) : (
+            <CardContent className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">Selecione uma conversa para começar</p>
               </div>
-            </div>
-          </>
-        ) : (
-          /* Empty State */
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <MessageSquare className="w-12 h-12 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Selecione uma conversa</h3>
-              <p className="text-gray-500">Escolha uma conversa da lista para começar a atender</p>
-            </div>
-          </div>
-        )}
+            </CardContent>
+          )}
+        </Card>
       </div>
     </div>
   )
