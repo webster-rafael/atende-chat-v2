@@ -21,8 +21,46 @@ model User {
   conversations Conversation[]
   messages      Message[]
   queues        QueueUser[]
+  company       Company?
 
   @@map("users")
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  phone       String
+  password    String
+  planId      String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  plan        Plan     @relation(fields: [planId], references: [id])
+  users       User[]
+
+  @@map("companies")
+}
+
+model Plan {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  displayName String
+  description String?
+  price       Decimal
+  features    String[]
+  maxUsers    Int
+  maxQueues   Int
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relacionamentos
+  companies   Company[]
+
+  @@map("plans")
 }
 
 model Contact {

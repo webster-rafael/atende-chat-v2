@@ -1,215 +1,408 @@
-# Configuração da API do WhatsApp Business
+# 📱 Configuração da API do WhatsApp Business
 
-Este guia explica como configurar completamente a integração com a API oficial do WhatsApp Business.
+Este guia completo mostra como configurar a integração com a API oficial do WhatsApp Business.
 
-## 📋 Pré-requisitos
+## 🎯 Pré-requisitos
 
-1. **Conta Meta Business**: Conta verificada no Meta Business Manager
-2. **Aplicativo WhatsApp Business**: Criado no Meta for Developers
-3. **Número de telefone**: Número verificado para WhatsApp Business
-4. **Webhook público**: URL pública para receber webhooks (use ngrok para desenvolvimento)
+### 1. Conta Meta for Developers
+- Acesse [developers.facebook.com](https://developers.facebook.com/)
+- Crie uma conta de desenvolvedor
+- Verifique sua conta (pode levar até 24h)
 
-## 🚀 Passo a Passo
+### 2. Aplicativo WhatsApp Business
+- Crie um novo aplicativo
+- Adicione o produto "WhatsApp Business API"
+- Configure as permissões necessárias
 
-### 1. Configurar Meta for Developers
+### 3. Número de Telefone
+- Número de telefone comercial válido
+- Não pode estar registrado no WhatsApp pessoal
+- Deve ser capaz de receber SMS para verificação
 
-1. Acesse [Meta for Developers](https://developers.facebook.com/)
-2. Crie um novo aplicativo ou use um existente
-3. Adicione o produto "WhatsApp Business Platform"
-4. Configure as permissões necessárias
+## 🔧 Configuração Passo a Passo
 
-### 2. Obter Credenciais
+### Passo 1: Configurar o Aplicativo Meta
 
-#### Access Token
+1. **Criar Aplicativo:**
+   \`\`\`
+   - Acesse Meta for Developers
+   - Clique em "Criar Aplicativo"
+   - Escolha "Empresa" como tipo
+   - Preencha os dados da empresa
+   \`\`\`
+
+2. **Adicionar WhatsApp Business API:**
+   \`\`\`
+   - No painel do aplicativo
+   - Clique em "Adicionar Produto"
+   - Selecione "WhatsApp Business API"
+   - Configure as permissões básicas
+   \`\`\`
+
+3. **Obter Credenciais:**
+   \`\`\`
+   - App ID: Encontrado no painel principal
+   - App Secret: Em Configurações > Básico
+   - Access Token: Em WhatsApp > Introdução
+   - Phone Number ID: Em WhatsApp > Introdução
+   \`\`\`
+
+### Passo 2: Configurar Webhook
+
+1. **URL do Webhook:**
+   \`\`\`
+   https://seu-dominio.com/api/whatsapp/webhook
+   \`\`\`
+
+2. **Token de Verificação:**
+   \`\`\`
+   Crie um token secreto único (ex: meu_token_super_secreto_123)
+   \`\`\`
+
+3. **Campos de Assinatura:**
+   \`\`\`
+   ✅ messages
+   ✅ message_status
+   ✅ message_echoes (opcional)
+   \`\`\`
+
+### Passo 3: Configurar Variáveis de Ambiente
+
 \`\`\`bash
-# Token temporário (24h) - para testes
-YOUR_TEMP_ACCESS_TOKEN="EAAxxxxxxxxxx"
+# Copie o arquivo de exemplo
+cp backend/.env.example backend/.env
 
-# Token permanente - para produção
-# Gere através do Meta Business Manager
-YOUR_PERMANENT_ACCESS_TOKEN="EAAxxxxxxxxxx"
+# Configure as variáveis
+nano backend/.env
 \`\`\`
-
-#### Phone Number ID
-\`\`\`bash
-# Encontre em: WhatsApp > API Setup > Phone numbers
-YOUR_PHONE_NUMBER_ID="1234567890123456"
-\`\`\`
-
-#### Verify Token
-\`\`\`bash
-# Crie um token personalizado para verificação
-YOUR_VERIFY_TOKEN="meu_token_super_secreto_123"
-\`\`\`
-
-### 3. Configurar Webhook
-
-#### Desenvolvimento (com ngrok)
-\`\`\`bash
-# Instalar ngrok
-npm install -g ngrok
-
-# Expor porta local
-ngrok http 3333
-
-# URL do webhook será algo como:
-# https://abc123.ngrok.io/api/whatsapp/webhook
-\`\`\`
-
-#### Produção
-\`\`\`bash
-# Use sua URL de produção
-https://seu-dominio.com/api/whatsapp/webhook
-\`\`\`
-
-### 4. Configurar Variáveis de Ambiente
 
 \`\`\`env
-# backend/.env
-WHATSAPP_ACCESS_TOKEN="EAAxxxxxxxxxx"
+# WhatsApp Business API
+WHATSAPP_ACCESS_TOKEN="EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 WHATSAPP_PHONE_NUMBER_ID="1234567890123456"
 WHATSAPP_WEBHOOK_VERIFY_TOKEN="meu_token_super_secreto_123"
 WHATSAPP_API_VERSION="v18.0"
 WHATSAPP_API_URL="https://graph.facebook.com"
-WEBHOOK_URL="https://abc123.ngrok.io/api/whatsapp/webhook"
+
+# Webhook Configuration
+WEBHOOK_URL="https://seu-dominio.com/api/whatsapp/webhook"
+
+# Database (Supabase)
+DATABASE_URL="postgresql://postgres:password@db.supabase.co:5432/postgres"
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_ANON_KEY="your-anon-key"
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
+
+# Server
+PORT=3333
+NODE_ENV=development
+CORS_ORIGIN="http://localhost:3000"
+
+# JWT
+JWT_SECRET="your-super-secret-jwt-key-change-in-production"
+JWT_EXPIRES_IN="7d"
 \`\`\`
 
-### 5. Configurar Webhook no Meta
+### Passo 4: Configurar Supabase
 
-1. Acesse seu app no Meta for Developers
-2. Vá em WhatsApp > Configuration
-3. Configure o webhook:
-   - **Callback URL**: `https://abc123.ngrok.io/api/whatsapp/webhook`
-   - **Verify Token**: `meu_token_super_secreto_123`
-   - **Webhook Fields**: Marque `messages` e `message_status`
+1. **Criar Projeto Supabase:**
+   \`\`\`
+   - Acesse supabase.com
+   - Crie um novo projeto
+   - Anote a URL e as chaves da API
+   \`\`\`
 
-### 6. Testar Configuração
+2. **Executar Migrações:**
+   \`\`\`bash
+   cd backend
+   npx prisma migrate dev --name init
+   npx prisma generate
+   npx prisma db seed
+   \`\`\`
+
+### Passo 5: Configurar Domínio (Produção)
+
+Para produção, você precisa de um domínio HTTPS válido:
+
+1. **Usando Vercel:**
+   \`\`\`bash
+   # Deploy automático
+   vercel --prod
+   
+   # URL será: https://seu-app.vercel.app
+   \`\`\`
+
+2. **Usando Ngrok (Desenvolvimento):**
+   \`\`\`bash
+   # Instalar ngrok
+   npm install -g ngrok
+   
+   # Expor porta local
+   ngrok http 3333
+   
+   # URL será: https://abc123.ngrok.io
+   \`\`\`
+
+3. **Atualizar Webhook no Meta:**
+   \`\`\`
+   URL: https://seu-dominio.com/api/whatsapp/webhook
+   Token: meu_token_super_secreto_123
+   \`\`\`
+
+## 🧪 Testando a Integração
+
+### 1. Verificar Webhook
 
 \`\`\`bash
-# 1. Iniciar o backend
-cd backend
-npm run dev
+# Testar verificação do webhook
+curl -X GET "https://seu-dominio.com/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=meu_token_super_secreto_123&hub.challenge=CHALLENGE_ACCEPTED"
 
-# 2. Verificar webhook
-curl -X GET "https://abc123.ngrok.io/api/whatsapp/webhook?hub.mode=subscribe&hub.challenge=test&hub.verify_token=meu_token_super_secreto_123"
+# Resposta esperada: CHALLENGE_ACCEPTED
+\`\`\`
 
-# 3. Testar envio de mensagem
-curl -X POST "http://localhost:3333/api/whatsapp/send-message" \
+### 2. Enviar Mensagem de Teste
+
+\`\`\`bash
+# Via API
+curl -X POST http://localhost:3333/api/whatsapp/send-message \
   -H "Content-Type: application/json" \
   -d '{
     "to": "5567999887766",
-    "message": "Olá! Esta é uma mensagem de teste.",
+    "message": "🧪 Teste de integração WhatsApp ERP!",
     "type": "text"
   }'
 \`\`\`
 
-## 🔧 Funcionalidades Implementadas
+### 3. Testar Recebimento
 
-### ✅ Recebimento de Mensagens
-- Mensagens de texto
-- Imagens com legenda
-- Documentos
-- Áudios
-- Vídeos
-- Localização
+1. Envie uma mensagem para o número configurado
+2. Verifique os logs do servidor
+3. Confirme se a mensagem foi salva no banco
 
-### ✅ Envio de Mensagens
-- Mensagens de texto
-- Imagens com legenda
-- Documentos
-- Templates (em desenvolvimento)
+## 🔍 Monitoramento e Logs
 
-### ✅ Status de Mensagens
-- Enviada (sent)
-- Entregue (delivered)
-- Lida (read)
-- Falha (failed)
-
-### ✅ Gestão de Contatos
-- Criação automática de contatos
-- Atualização de informações
-- Histórico de conversas
-
-### ✅ Sistema de Filas
-- Distribuição automática
-- Atribuição manual
-- Priorização de atendimento
-
-## 🛠️ Comandos Úteis
+### Logs do Sistema
 
 \`\`\`bash
-# Verificar conexões ativas
-curl http://localhost:3333/api/whatsapp/connections
+# Logs gerais
+tail -f logs/app.log
 
-# Criar nova conexão
-curl -X POST http://localhost:3333/api/whatsapp/connections \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Conexão Principal",
-    "phoneNumberId": "1234567890123456",
-    "accessToken": "EAAxxxxxxxxxx",
-    "verifyToken": "meu_token_123",
-    "webhookUrl": "https://abc123.ngrok.io/api/whatsapp/webhook"
-  }'
-
-# Testar conexão
-curl -X POST http://localhost:3333/api/whatsapp/test-connection/CONNECTION_ID
-
-# Ativar/desativar conexão
-curl -X PATCH http://localhost:3333/api/whatsapp/connections/CONNECTION_ID/toggle
-\`\`\`
-
-## 🔍 Troubleshooting
-
-### Webhook não está recebendo mensagens
-1. Verifique se o ngrok está rodando
-2. Confirme se a URL do webhook está correta no Meta
-3. Verifique os logs do servidor
-4. Teste a URL manualmente
-
-### Erro ao enviar mensagens
-1. Verifique se o Access Token está válido
-2. Confirme se o Phone Number ID está correto
-3. Verifique se o número de destino está no formato correto
-4. Consulte os logs da API do WhatsApp
-
-### Token expirado
-1. Gere um novo token no Meta Business Manager
-2. Atualize a variável de ambiente
-3. Reinicie o servidor
-
-## 📊 Monitoramento
-
-### Logs importantes
-\`\`\`bash
 # Logs do webhook
 tail -f logs/webhook.log
 
 # Logs de mensagens
 tail -f logs/messages.log
-
-# Logs de erros
-tail -f logs/error.log
 \`\`\`
 
-### Métricas
-- Taxa de entrega de mensagens
-- Tempo de resposta do webhook
-- Número de conversas ativas
-- Mensagens por minuto
+### Métricas Importantes
 
-## 🔒 Segurança
+1. **Taxa de Entrega:**
+   \`\`\`sql
+   SELECT 
+     status,
+     COUNT(*) as total,
+     ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage
+   FROM messages 
+   WHERE direction = 'OUTBOUND'
+   GROUP BY status;
+   \`\`\`
 
-1. **Nunca exponha** tokens de acesso em logs
-2. **Use HTTPS** sempre em produção
-3. **Valide** todos os webhooks recebidos
-4. **Implemente** rate limiting
-5. **Monitore** tentativas de acesso não autorizadas
+2. **Tempo de Resposta:**
+   \`\`\`sql
+   SELECT 
+     AVG(EXTRACT(EPOCH FROM (sent_at - created_at))) as avg_response_time_seconds
+   FROM messages 
+   WHERE direction = 'OUTBOUND';
+   \`\`\`
 
-## 📈 Próximos Passos
+## 🚨 Troubleshooting
 
-- [ ] Implementar templates de mensagem
-- [ ] Adicionar suporte a botões interativos
-- [ ] Implementar chatbot com IA
-- [ ] Adicionar métricas avançadas
-- [ ] Implementar backup automático
+### Problemas Comuns
+
+1. **Webhook não recebe mensagens:**
+   \`\`\`
+   ✅ Verificar se a URL está acessível publicamente
+   ✅ Confirmar se o token de verificação está correto
+   ✅ Checar se os campos estão assinados corretamente
+   ✅ Verificar logs de erro no servidor
+   \`\`\`
+
+2. **Erro ao enviar mensagens:**
+   \`\`\`
+   ✅ Verificar se o Access Token está válido
+   ✅ Confirmar se o Phone Number ID está correto
+   ✅ Checar se o número de destino está no formato correto
+   ✅ Verificar limites de rate limiting
+   \`\`\`
+
+3. **Mensagens não aparecem no sistema:**
+   \`\`\`
+   ✅ Verificar conexão com banco de dados
+   ✅ Confirmar se o webhook está processando corretamente
+   ✅ Checar logs de erro no processamento
+   ✅ Verificar se o contato foi criado corretamente
+   \`\`\`
+
+### Comandos de Diagnóstico
+
+\`\`\`bash
+# Testar conexão com banco
+npm run db:test
+
+# Verificar status do webhook
+curl https://seu-dominio.com/api/whatsapp/webhook-status
+
+# Testar conexão WhatsApp
+npm run test:whatsapp
+
+# Verificar logs em tempo real
+npm run logs:watch
+\`\`\`
+
+## 📊 Limites e Quotas
+
+### Limites da API WhatsApp
+
+1. **Mensagens por Segundo:**
+   - Desenvolvimento: 20 msg/s
+   - Produção: 80-1000 msg/s (varia por tier)
+
+2. **Mensagens por Dia:**
+   - Tier 1: 1.000 mensagens
+   - Tier 2: 10.000 mensagens
+   - Tier 3: 100.000 mensagens
+
+3. **Rate Limiting:**
+   - 4.000 requests por hora por aplicativo
+   - 200 requests por minuto por número
+
+### Boas Práticas
+
+1. **Implementar Retry Logic:**
+   \`\`\`typescript
+   const maxRetries = 3;
+   const retryDelay = 1000; // 1 segundo
+   
+   async function sendWithRetry(message, retries = 0) {
+     try {
+       return await whatsappService.sendMessage(message);
+     } catch (error) {
+       if (retries < maxRetries) {
+         await new Promise(resolve => setTimeout(resolve, retryDelay * (retries + 1)));
+         return sendWithRetry(message, retries + 1);
+       }
+       throw error;
+     }
+   }
+   \`\`\`
+
+2. **Queue de Mensagens:**
+   \`\`\`typescript
+   // Implementar fila com Redis ou similar
+   import Queue from 'bull';
+   
+   const messageQueue = new Queue('message processing');
+   
+   messageQueue.process(async (job) => {
+     const { message } = job.data;
+     return await whatsappService.sendMessage(message);
+   });
+   \`\`\`
+
+## 🔐 Segurança
+
+### Validação de Webhook
+
+\`\`\`typescript
+import crypto from 'crypto';
+
+function validateWebhook(payload: string, signature: string): boolean {
+  const expectedSignature = crypto
+    .createHmac('sha256', process.env.WHATSAPP_APP_SECRET!)
+    .update(payload)
+    .digest('hex');
+    
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(`sha256=${expectedSignature}`)
+  );
+}
+\`\`\`
+
+### Sanitização de Dados
+
+\`\`\`typescript
+function sanitizePhoneNumber(phone: string): string {
+  // Remove todos os caracteres não numéricos
+  return phone.replace(/\D/g, '');
+}
+
+function sanitizeMessage(message: string): string {
+  // Remove caracteres perigosos
+  return message
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/[<>]/g, '')
+    .trim();
+}
+\`\`\`
+
+## 📈 Otimização de Performance
+
+### Cache de Conexões
+
+\`\`\`typescript
+import NodeCache from 'node-cache';
+
+const connectionCache = new NodeCache({ stdTTL: 3600 }); // 1 hora
+
+async function getCachedConnection(phoneNumberId: string) {
+  let connection = connectionCache.get(phoneNumberId);
+  
+  if (!connection) {
+    connection = await prisma.whatsAppConnection.findFirst({
+      where: { phoneNumberId, isActive: true }
+    });
+    
+    if (connection) {
+      connectionCache.set(phoneNumberId, connection);
+    }
+  }
+  
+  return connection;
+}
+\`\`\`
+
+### Batch Processing
+
+\`\`\`typescript
+async function processBatchMessages(messages: any[]) {
+  const batchSize = 10;
+  const batches = [];
+  
+  for (let i = 0; i < messages.length; i += batchSize) {
+    batches.push(messages.slice(i, i + batchSize));
+  }
+  
+  for (const batch of batches) {
+    await Promise.all(batch.map(msg => processMessage(msg)));
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Rate limiting
+  }
+}
+\`\`\`
+
+## 🎉 Conclusão
+
+Com esta configuração, você terá:
+
+- ✅ **Integração completa** com WhatsApp Business API
+- ✅ **Recebimento automático** de mensagens
+- ✅ **Envio programático** de mensagens
+- ✅ **Gestão de status** de entrega
+- ✅ **Suporte a mídia** (imagens, documentos, etc.)
+- ✅ **Sistema de filas** inteligente
+- ✅ **Monitoramento** e logs detalhados
+- ✅ **Segurança** robusta
+- ✅ **Performance** otimizada
+
+O sistema está pronto para uso em produção! 🚀
+\`\`\`
